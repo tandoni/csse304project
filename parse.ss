@@ -1,0 +1,201 @@
+; This is a parser for simple Scheme expressions, such as those in EOPL, 3.1 thru 3.3.
+
+; You will want to replace this with your parser that includes more expression types, more options for these types, and error-checking.
+
+; Procedures to make the parser a little bit saner.
+(define 1st car)
+(define 2nd cadr)
+(define 3rd caddr)
+
+(define parse-exp         
+  (lambda (datum)
+      (cond
+        
+        [(symbol? datum) (var-exp datum)]
+        [(pair? datum)
+          (cond
+              [(not (list? datum)) (eopl:error 'parse-exp "The expression ~s is not a list" datum)]
+              [(equal? (car datum) 'lambda) (parse-lambda datum)]
+              [(equal? (car datum) 'while) (parse-while datum)]
+              [(equal? (car datum) 'if) (parse-if datum)]
+              [(equal? (car datum) 'let) (parse-let datum)]
+              [(equal? (car datum) 'let*) (parse-let* datum)]
+              [(equal? (car datum) 'letrec) (parse-letrec datum)]
+			  [(equal? (car datum) 'and) (and-exp (map parse-exp (cdr datum)))]
+              [(equal? (car datum) 'set!) (parse-set! datum)]
+              [(equal? (car datum) 'quote) (lit-exp (2nd datum))]
+              [(equal? (car datum) 'or) (parse-or datum)]
+              [(equal? (car datum) 'begin) (parse-begin datum)]
+			        [(equal? (car datum) 'cond) (parse-cond datum)]
+              [(equal? (car datum) 'case) (parse-case datum)]
+
+              [else (app-exp (parse-exp (1st datum))
+                (map parse-exp (cdr datum)))])]
+        [(lit? datum) (lit-exp datum)]
+    [else (eopl:error 'parse-exp "bad expression: ~s" datum)])))
+
+(define parse-cond
+	(lambda(datum)
+		(cond-exp (map parse-exp (map car (cdr datum))) (map parse-exp (map cadr (cdr datum))))))
+			
+
+(define cond-helper
+  (lambda (datum)
+    (if-exp (parse-exp (car datum)) (map parse-exp (cdr datum)))))
+
+(define parse-while
+	(lambda (datum)
+		(while-exp (parse-exp (cadr datum)) (map parse-exp (cddr datum)))))
+
+(define parse-case
+	(lambda (datum)
+		(case-exp (parse-exp (cadr datum))
+			(map (lambda (x)
+			 		 (if (list? x) 
+			 		 	(map parse-exp x) 
+			 		 	x)) 
+			(map car (cddr datum))) (map parse-exp (map cadr (cddr datum))))))
+
+(define parse-begin
+	(lambda (datum)
+		(begin-exp (map parse-exp (cdr datum)))))
+
+(define parse-or
+	(lambda (datum)
+		(or-exp (map parse-exp (cdr datum)))))
+
+(define parse-lambda
+  (lambda (datum)
+    (cond
+      [(< (length datum) 3) (eopl:error 'parse-exp "lambda expression missing required arguments ~s" datum)]
+
+      [(symbol? (cadr datum)) (lambda-arbitrary-exp (2nd datum) (map parse-exp (cddr datum)))]
+      [(lambda-has-arbitrary-args? (cadr datum)) (lambda-dot-exp (lambda-dot-args (cadr datum)) (lambda-dot-id (cadr datum)) (map parse-exp (cddr datum)))]
+	  [((list-of symbol?) (cadr datum)) (lambda-exp (cadr datum) (map parse-exp (cddr datum)))]
+	  
+	  ;[(andmap symbol? (2nd datum)) (lambda-exp (2nd datum) (map parse-exp (cddr datum)))]
+      ; [(or (null? (2nd datum)) (symbol? (2nd datum)) (pair? (2nd datum))) (lambda-exp (2nd datum) (map parse-exp (cddr datum)))] 
+      [else (eopl:error 'parse-exp "invalid arguments for lambda ~s" (2nd datum))])))
+	  
+(define lambda-has-arbitrary-args?
+	(lambda (args)
+			(and (pair? args) (not (list? args)))
+		))
+(define lambda-dot-id
+	(lambda (args)
+		(if (pair? (cdr args))
+			(lambda-dot-id (cdr args))
+			(cdr args)
+		)))
+		
+(define lambda-dot-args
+	(lambda (args)
+		(if (symbol? (cdr args))
+			(list (car args))
+			(cons (car args) (lambda-dot-args (cdr args)))
+		)))
+
+(define parse-if
+  (lambda (datum)
+    (cond
+      [(= 3 (length datum)) (if-else-exp (parse-exp (2nd datum)) (parse-exp (3rd datum)) (void-exp))]
+      [(= 4 (length datum)) (if-else-exp (parse-exp (2nd datum)) (parse-exp (3rd datum)) (parse-exp (cadddr datum)))]
+      [else (eopl:error 'parse-exp "if statement is atleast 3 ~s" datum)])))
+
+
+(define parse-let
+  (lambda (datum)
+    (cond
+      [(< (length datum) 3) (eopl:error 'parse-exp "invalid length ~s" datum)]
+      [(= 3 (length datum)) (if (let-helper (2nd datum)) 
+                        (let-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum)))
+                        (eopl:error 'parse-exp "invalid syntax ~s" datum))]
+      [else (cond
+            [(not (symbol? (2nd datum))) (if (let-helper (2nd datum))
+                            (let-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum))) 
+                            (eopl:error 'parse-exp "name of named let is not a name ~s" datum))]
+            [(let-helper (3rd datum)) (named-let-exp (2nd datum) (map (lambda (x) (list (1st x) (parse-exp (2nd x)))) (3rd datum)) (map parse-exp (cdddr datum)))]
+            [else (eopl:error 'parse-exp "syntax error in named let ~s" datum)])])))
+
+(define parse-let*
+  (lambda (datum)
+    (cond
+      [(> 3 (length datum)) (eopl:error 'parse-exp "invalid length of let* ~s" datum)]
+      [(let-helper (2nd datum)) (let*-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum)))]
+      [else (eopl:error 'parse-exp "invalid syntax of let* ~s" datum)])))
+
+
+(define parse-letrec
+  (lambda(datum)
+    (cond
+      [(> 3 (length datum)) (eopl:error 'parse-exp "invalid length of letrec ~s" datum)]
+      [(let-helper (2nd datum)) (letrec-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum)))]
+      [else (eopl:error 'parse-exp "invalid syntax of letrec ~s" datum)])))
+
+
+(define parse-set!
+  (lambda (datum)
+    (cond
+      [(= (length datum) 3) (set!-exp (2nd datum) (parse-exp (3rd datum)))]
+      [else (eopl:error 'parse-exp "invalid syntaxt of set! ~s" datum)])))
+
+
+
+(define let-helper
+  (lambda (datum)
+    (cond
+      [(null? datum) #t]
+      [(list? datum) (andmap (lambda (e) (cond [(not (list? e)) #f] [(not (symbol? (car e))) #f] [(not (= (length e) 2)) #f] [else #t])) datum)]
+      [else #f])))
+
+
+;(define lambda-helper
+;  (lambda (x)
+;    (or (null? x) (symbol? x) (pair? x))))
+
+
+(define unparse-exp
+  (lambda (datum)
+    (cases expression datum
+	  [lambda-dot-exp (id arbitrary-id body) (cons 'lambda (cons (fold-right cons arbitrary-id id) (map unparse-exp body)))]
+	  [lambda-arbitrary-exp (id body) (cons 'lambda (cons id (map unparse-exp body)))]
+      [var-exp (var) var]
+	  [while-exp (test-exp bodies) (cons 'while (cons (unparse-exp test-exp) (map unparse-exp bodies)))]
+      [lambda-exp (id body) (cons* 'lambda id (map unparse-exp body))]
+      [if-exp (condition body) (list 'if (unparse-exp condition) (unparse-exp body))]
+      [if-else-exp (condition body1 body2) (list 'if (unparse-exp condition) (unparse-exp body1) (unparse-exp body2))]
+      [let-exp (vars vals body) (cons* 'let (unparse-let vars vals '()) (map unparse-exp body))]
+      [let*-exp (vars vals body) (cons* 'let* (unparse-let vars vals '()) (map unparse-exp body))]
+      [letrec-exp (vars vals body) (cons* 'letrec (unparse-let vars vals '()) (map unparse-exp body))]
+      [named-let-exp (id vars vals body) (cons* 'let id (unparse-let vars vals '()) (map unparse-exp body))]
+      [set!-exp (id body) (cons* 'set! id (unparse-exp body))]
+      [lit-exp (id) id]
+      [vec-exp (id) id]
+	  [void-exp () (void)]
+	  [and-exp (args) (cons 'and (map unparse-exp args))]
+	  [cond-exp (conditions bodies)
+		(cons 'cond (unparse-cond-helper conditions bodies '()))]
+	  ;[or-exp (body) "<unimplemented>"]
+	  ;[begin-exp (body) "<unimplemented>"]
+      [app-exp (rator rand)
+        (cons*
+          (unparse-exp rator) (map unparse-exp rand))])))
+
+(define unparse-cond-helper
+	(lambda (conditions bodies return)
+		(if (null? conditions)
+			return
+			(unparse-cond-helper
+				(cdr conditions)
+				(cdr bodies)
+				(append (cons (unparse-exp (car conditions)) (unparse-exp (car bodies))) return)
+			))))
+
+(define unparse-let
+  (lambda (vars vals ans)
+    (cond
+      [(null? vars) (reverse ans)]
+      [else (unparse-let (cdr vars) (cdr vals) (cons (list (car vars) (unparse-exp (car vals))) ans))])))
+
+
+
