@@ -114,7 +114,7 @@
             [(not (symbol? (2nd datum))) (if (let-helper (2nd datum))
                             (let-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum))) 
                             (eopl:error 'parse-exp "name of named let is not a name ~s" datum))]
-            [(let-helper (3rd datum)) (named-let-exp (2nd datum) (map (lambda (x) (list (1st x) (parse-exp (2nd x)))) (3rd datum)) (map parse-exp (cdddr datum)))]
+            [(let-helper (3rd datum)) (named-let-exp (2nd datum) (map 1st (3rd datum)) (map parse-exp (map 2nd (3rd datum))) (map parse-exp (cdddr datum)))]
             [else (eopl:error 'parse-exp "syntax error in named let ~s" datum)])])))
 
 (define parse-let*
@@ -129,7 +129,8 @@
   (lambda(datum)
     (cond
       [(> 3 (length datum)) (eopl:error 'parse-exp "invalid length of letrec ~s" datum)]
-      [(let-helper (2nd datum)) (letrec-exp (map car (2nd datum)) (map parse-exp (map cadr (2nd datum))) (map parse-exp (cddr datum)))]
+      [(let-helper (2nd datum)) (letrec-exp (map car (2nd datum)) (map cadr (map cadr (2nd datum))) 
+                                  (map parse-exp (map caddr (map cadr (2nd datum)))) (map parse-exp (cddr datum)))]
       [else (eopl:error 'parse-exp "invalid syntax of letrec ~s" datum)])))
 
 

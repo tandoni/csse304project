@@ -28,8 +28,8 @@
            (body (list-of expression?)) ]
     [let*-exp (vars (list-of symbol?)) (vals (list-of expression?))
             (body (list-of expression?))]
-    [letrec-exp (vars (list-of symbol?)) (vals (list-of expression?))
-              (body (list-of expression?))]
+    [letrec-exp (proc-names (list-of symbol?)) (vars (list-of (list-of symbol?))) (bodies (list-of expression?))
+              (letrec-body (list-of expression?))]
     [named-let-exp (id symbol?)
                  (vars (list-of symbol?)) (vals (list-of expression?))
                  (body (list-of expression?))]
@@ -91,7 +91,12 @@
   (extended-env-record
    (syms (list-of symbol?))
    (vals (list-of scheme-value?))
-   (env environment?)))
+   (env environment?))
+  (recursively-extended-env-record
+    (proc-names (list-of symbol?))
+    (vars (list-of (list-of symbol?)))
+    (bodies (list-of expression?))
+    (env environment?)))
 
 
 
