@@ -139,9 +139,9 @@
 			[lambda-exp (id body) (lambda-exp id (map syntax-expand body))]
 			[let-exp (vars vals body)
 				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
-    
+
                         [named-let-exp (id vars vals body)
-                                ]
+                                (letrec-exp (list id) (list vars) body body)]
     
 			[while-exp (test-exp bodies) (while-exp (syntax-expand test-exp) (map syntax-expand bodies))]
 			[app-exp (rator rands) (app-exp (syntax-expand rator) (map syntax-expand rands))]
@@ -165,7 +165,7 @@
 
                [let*-exp (vars vals body) (expand-let* vars vals body)]
 
-			[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
+			[else exp]
 			)))
 
 (define expand-let*
