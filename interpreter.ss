@@ -165,7 +165,7 @@
 
                [let*-exp (vars vals body) (expand-let* vars vals body)]
 
-			[else exp]
+			[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 			)))
 
 (define expand-let*
