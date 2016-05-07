@@ -4,7 +4,7 @@
               assq eq? equal? atom? length list->vector list? pair?
               procedure? vector->list vector vector? number? symbol?
               caar cadr cadar >= <= > < make-vector vector-ref set-car! set-cdr! display newline
-              map apply quotient vector-set! member list-tail))
+              map apply quotient vector-set! member list-tail append eqv?))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -140,8 +140,11 @@
 			[let-exp (vars vals body)
 				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
 
+                        [letrec-exp (proc-names vars bodies letrec-body)
+                                (letrec-exp proc-names vars (map syntax-expand bodies) letrec-body)]
+    
                         [named-let-exp (id vars vals body)
-                                (letrec-exp (list id) (list vars) body body)]
+                                (let-exp vars vals (list (letrec-exp (list id) (list vars) (map syntax-expand body) (map syntax-expand body))))]
     
 			[while-exp (test-exp bodies) (while-exp (syntax-expand test-exp) (map syntax-expand bodies))]
 			[app-exp (rator rands) (app-exp (syntax-expand rator) (map syntax-expand rands))]
@@ -209,6 +212,7 @@
       [(assq) (assq (car args) (cadr args))]
       [(eq?) (eq? (car args) (cadr args))]
       [(equal?) (equal? (car args) (cadr args))]
+      [(eqv?) (eqv? (car args) (cadr args))]
       [(atom?) (atom? (car args))]
       [(length) (length (car args))]
       [(list->vector) (list->vector (car args))]
@@ -238,6 +242,7 @@
   	  [(display) (display args)]
   	  [(newline) (newline)]
       [(member) (member (car args) (cadr args))]
+      [(append) (apply append args)]
 	
 
       [else (error 'apply-prim-proc 
