@@ -129,10 +129,9 @@
   (lambda(datum)
     (cond
       [(> 3 (length datum)) (eopl:error 'parse-exp "invalid length of letrec ~s" datum)]
-      [(let-helper (2nd datum)) (letrec-exp (map car (2nd datum)) (map cadr (map cadr (2nd datum))) 
+      [(let-helper (2nd datum)) (letrec-exp (map car (2nd datum)) (map cadadr (2nd datum)) 
                                   (map parse-exp (map caddr (map cadr (2nd datum)))) (map parse-exp (cddr datum)))]
       [else (eopl:error 'parse-exp "invalid syntax of letrec ~s" datum)])))
-
 
 (define parse-set!
   (lambda (datum)
