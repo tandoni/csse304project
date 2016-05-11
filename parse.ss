@@ -28,11 +28,16 @@
               [(equal? (car datum) 'begin) (parse-begin datum)]
 			        [(equal? (car datum) 'cond) (parse-cond datum)]
               [(equal? (car datum) 'case) (parse-case datum)]
+              [(equal? (car datum) 'define) (parse-define datum)]
 
               [else (app-exp (parse-exp (1st datum))
                 (map parse-exp (cdr datum)))])]
         [(lit? datum) (lit-exp datum)]
     [else (eopl:error 'parse-exp "bad expression: ~s" datum)])))
+
+(define parse-define
+  (lambda (datum)
+    (define-exp (cadr datum) (map parse-exp (cddr datum)))))
 
 (define parse-cond
 	(lambda(datum)

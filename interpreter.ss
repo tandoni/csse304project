@@ -12,12 +12,27 @@
      (map prim-proc      
           *prim-proc-names*)
      (empty-env)))
+
+(define make-init-env
+  (lambda () init-env))
  
 (define global-env init-env)
 
+(define reset-global-env
+ (lambda () (set! global-env (make-init-env))))
+
+
 (define top-level-eval
   (lambda (form)
-    (eval-exp form (empty-env))))
+    (display form)
+    (cases expression form
+      [begin-exp (body) (if (equal? (caar body) 'define-exp)
+                                (begin (set! global-env
+                                         (extend-env (list (cadar body)) (list (eval-exp (caar (cddr (car body))) global-env)) global-env))
+                                  (top-level-eval (begin-exp (cdr body))))
+                                (eval-exp form global-env))]
+      [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env))]
+      [else (eval-exp form (empty-env))])))
 
 
 (define eval-exp
@@ -141,7 +156,7 @@
 				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
 
                         [letrec-exp (proc-names vars bodies letrec-body)
-                                (letrec-exp proc-names vars (map syntax-expand bodies) letrec-body)]
+                                (letrec-exp proc-names vars (map syntax-expand bodies) (map syntax-expand letrec-body))]
     
                         [named-let-exp (id vars vals body)
                                 (let-exp vars vals (list (letrec-exp (list id) (list vars) (map syntax-expand body) (map syntax-expand body))))]
@@ -166,7 +181,9 @@
                         [else (if-else-exp (syntax-expand (car cases)) (syntax-expand (car dos)) (helper (cdr cases) (cdr dos)))]))]
 
 
-               [let*-exp (vars vals body) (expand-let* vars vals body)]
+                        [let*-exp (vars vals body) (expand-let* vars vals body)]
+                        
+                        [define-exp (name val) (define-exp name (map syntax-expand val))] 
 
 			[else exp]
 			)))
