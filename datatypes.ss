@@ -89,6 +89,7 @@
 
 (define-datatype environment environment?
   (empty-env-record)
+  (fail-env)
   (extended-env-record
    (syms (list-of symbol?))
    (vals (list-of scheme-value?))

@@ -142,7 +142,7 @@
   (lambda (datum)
     (cond
       [(= (length datum) 3) (set!-exp (2nd datum) (parse-exp (3rd datum)))]
-      [else (eopl:error 'parse-exp "invalid syntaxt of set! ~s" datum)])))
+      [else (eopl:error 'parse-exp "invalid syntax of set! ~s" datum)])))
 
 
 

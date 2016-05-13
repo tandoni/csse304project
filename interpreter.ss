@@ -87,9 +87,17 @@
 		[or-exp (body) (eval-or body env)]
 
 		[begin-exp (body) (eval-in-order body env)]
-        
+        [set!-exp (id body) (eval-set! id body env)]
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
+
+(define eval-set!
+	(lambda (id body env)
+		(let ([val (eval-exp body env)] [sym (apply-env-ref env id (lambda (x)
+								x) (lambda () (eopl:error 'set! "variable not found ~s" id)))])
+		(if (box? (unbox sym))
+			(ref-set! (unbox sym) val)
+			(ref-set! sym val)))))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -183,7 +191,7 @@
 
                         [let*-exp (vars vals body) (expand-let* vars vals body)]
                         
-                        [define-exp (name val) (define-exp name (map syntax-expand val))] 
+        [define-exp (name val) (define-exp name (syntax-expand val))] 
 
 			[else exp]
 			)))
@@ -279,7 +287,9 @@
   (lambda (x) (top-level-eval (syntax-expand (parse-exp x)))))
 
 
-
+(define check-ref
+	(lambda (id)
+		(ormap list? id)))
 
 
 
