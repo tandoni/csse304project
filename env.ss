@@ -6,7 +6,7 @@
 
 (define extend-env
   (lambda (syms vals env)
-    (extended-env-record syms vals env)))
+    (extended-env-record syms (map box vals) env)))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env)

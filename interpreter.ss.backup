@@ -28,10 +28,10 @@
     (cases expression form
       [begin-exp (body) (if (equal? (caar body) 'define-exp)
                                 (begin (set! global-env
-                                         (extend-env (list (cadar body)) (eval-exp (caar (cddr (car body))) global-env) global-env))
+                                         (extend-env (list (cadar body)) (list (eval-exp (caar (cddr (car body))) global-env)) global-env))
                                   (top-level-eval (begin-exp (cdr body))))
                                 (eval-exp form global-env))]
-      [define-exp (name val) (set! global-env (extend-env (list name) (eval-exp (car val) global-env) global-env))]
+      [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env))]
       [else (eval-exp form (empty-env))])))
 
 
@@ -87,9 +87,17 @@
 		[or-exp (body) (eval-or body env)]
 
 		[begin-exp (body) (eval-in-order body env)]
-        
+        [set!-exp (id body) (eval-set! id body env)]
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
+
+(define eval-set!
+	(lambda (id body env)
+		(let ([val (eval-exp body env)] [sym (apply-env-ref env id (lambda (x)
+								x) (lambda () (eopl:error 'set! "variable not found ~s" id)))])
+		(if (box? (unbox sym))
+			(ref-set! (unbox sym) val)
+			(ref-set! sym val)))))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -156,7 +164,7 @@
 				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
 
                         [letrec-exp (proc-names vars bodies letrec-body)
-                                (letrec-exp proc-names vars (map syntax-expand bodies) letrec-body)]
+                                (letrec-exp proc-names vars (map syntax-expand bodies) (map syntax-expand letrec-body))]
     
                         [named-let-exp (id vars vals body)
                                 (let-exp vars vals (list (letrec-exp (list id) (list vars) (map syntax-expand body) (map syntax-expand body))))]
@@ -183,7 +191,7 @@
 
                         [let*-exp (vars vals body) (expand-let* vars vals body)]
                         
-                        [define-exp (name val) (define-exp name (syntax-expand val))] 
+        [define-exp (name val) (define-exp name (syntax-expand val))] 
 
 			[else exp]
 			)))
@@ -279,7 +287,9 @@
   (lambda (x) (top-level-eval (syntax-expand (parse-exp x)))))
 
 
-
+(define check-ref
+	(lambda (id)
+		(ormap list? id)))
 
 
 

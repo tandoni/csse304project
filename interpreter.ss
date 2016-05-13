@@ -24,7 +24,6 @@
 
 (define top-level-eval
   (lambda (form)
-    (display form)
     (cases expression form
       [begin-exp (body) (if (equal? (caar body) 'define-exp)
                                 (begin (set! global-env
