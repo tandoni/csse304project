@@ -64,10 +64,10 @@
             (eval-in-order body (extend-env vars (eval-rands vals env) env))]
       
         [letrec-exp (proc-names vars bodies letrec-body)
-            (eval-in-order letrec-body (extend-env-recursively proc-names vars bodies env))]
+              (eval-in-order letrec-body (extend-env-recursively proc-names vars bodies env))]
       
-        [lambda-exp (id body) 
-            (closure id body env)]
+        [lambda-exp (id body)
+               (closure id body env)]
 			
 		[lambda-dot-exp (id arbitrary-id body)
 			(dot-closure id arbitrary-id body env)]
@@ -95,8 +95,8 @@
 		(let ([val (eval-exp body env)] [sym (apply-env-ref env id (lambda (x)
 								x) (lambda () (eopl:error 'set! "variable not found ~s" id)))])
 		(if (box? (unbox sym))
-			(ref-set! (unbox sym) val)
-			(ref-set! sym val)))))
+			(set-box! (unbox sym) val)
+			(set-box! sym val)))))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -190,7 +190,7 @@
 
                         [let*-exp (vars vals body) (expand-let* vars vals body)]
                         
-        [define-exp (name val) (define-exp name (syntax-expand val))] 
+        [define-exp (name val) (define-exp name (map syntax-expand val))] 
 
 			[else exp]
 			)))

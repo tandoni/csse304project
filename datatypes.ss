@@ -99,6 +99,3 @@
     (vars (list-of (list-of symbol?)))
     (bodies (list-of expression?))
     (env environment?)))
-
-
-

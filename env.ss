@@ -12,17 +12,17 @@
   (lambda (proc-names idss bodies old-env)
     (recursively-extended-env-record
       proc-names idss bodies old-env)))
-	
+
 (define dot-extend-env
 	(lambda (syms dot-var vals env)
 		(extend-env (append syms (list dot-var)) (dot-env-helper (length syms) vals) env)
 	))
-	(define dot-env-helper
-		(lambda (len vals)
-			(if (zero? len)
-				(list vals)
-				(cons (car vals) (dot-env-helper (- len 1)(cdr vals)))
-			)))
+	
+(define dot-env-helper
+  (lambda (len vals)
+    (if (zero? len)
+        (list vals)
+        (cons (car vals) (dot-env-helper (- len 1)(cdr vals))))))
 
 (define list-find-position
   (lambda (sym los)
