@@ -6,7 +6,7 @@
 
 (define extend-env
   (lambda (syms vals env)
-    (extended-env-record syms vals env)))
+    (extended-env-record syms (map box vals) env)))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env)
@@ -37,6 +37,9 @@
 	     (if (number? list-index-r)
 		 (+ 1 list-index-r)
 		 #f))))))
+
+(define apply-env-ref
+  (lambda (env sym succeed fail)
 
 (define apply-env
   (lambda (env sym succeed fail) ; succeed and fail are procedures applied if the var is or isn't found, respectively.
