@@ -38,9 +38,6 @@
 		 (+ 1 list-index-r)
 		 #f))))))
 
-(define apply-env-ref
-  (lambda (env sym succeed fail)
-
 (define apply-env
   (lambda (env sym succeed fail) ; succeed and fail are procedures applied if the var is or isn't found, respectively.
     (cases environment env
