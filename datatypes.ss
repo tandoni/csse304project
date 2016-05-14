@@ -35,6 +35,8 @@
                  (body (list-of expression?))]
     [set!-exp  (id symbol?)
              (body expression?)]
+    [set!-exp  (id symbol?)
+             (body expression?)]
     [define-exp (name symbol?) (val (list-of expression?))]
 
     [cond-exp
