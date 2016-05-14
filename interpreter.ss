@@ -24,7 +24,6 @@
 
 (define top-level-eval
   (lambda (form)
-    (display form)
     (cases expression form
       [begin-exp (body) (if (equal? (caar body) 'define-exp)
                                 (begin (set! global-env
@@ -87,19 +86,10 @@
 		[or-exp (body) (eval-or body env)]
 
 		[begin-exp (body) (eval-in-order body env)]
-      
         [set!-exp (id body) (eval-set! id body env)]
         
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
-
-(define eval-set!
-	(lambda (id body env)
-		(let ([val (eval-exp body env)] [sym (apply-env-ref env id (lambda (x)
-								x) (lambda () (eopl:error 'set! "variable not found ~s" id)))])
-		(if (box? (unbox sym))
-			(set-box! (unbox sym) val)
-			(set-box! sym val)))))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -109,6 +99,28 @@
 				(eval-while test-exp bodies env)
 			)
 			#t)))
+
+(define eval-set!
+  (lambda (id body env)
+    (cases environment env
+      [empty-env-record () (fail)]
+      [extended-env-record (syms vals env)
+        (let ([pos (list-find-position id syms)])
+          (if (number? pos)
+              (replace-val pos (eval-exp body env) vals)
+              (eopl:error 'eval-set! "variable not found")))]
+      [recursively-extended-env-record (proc-names vars bodies env)
+        (let ([pos (list-find-position id proc-names)])
+          (if (number? pos)
+              (replace-val pos (eval-exp body env) bodies)
+              (eopl:error 'eval-set! "varibale not found recursive")))])))
+        
+(define replace-val
+  (lambda (pos val vals)
+    (if (= pos 0)
+        (set-car! vals val)
+        (replace-val (- pos 1) val (cdr vals)))))
+      
 
 (define eval-and
 	(lambda (body env)

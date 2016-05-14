@@ -6,7 +6,7 @@
 
 (define extend-env
   (lambda (syms vals env)
-    (extended-env-record syms (map box vals) env)))
+    (extended-env-record syms vals env)))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env)
@@ -54,52 +54,3 @@
               (closure (list-ref idss pos) (list (list-ref bodies pos)) env)
               (apply-env old-env sym succeed fail)))])))
 
-(define (recur-deref cell)
-  (if (box? cell)
-    (recur-deref (unbox cell))
-    cell
-    )
-  )
-
-
-(define (deref cell)
-  (unbox cell)
-  )
-
-(define (ref-set! cell value)
-  (set-box! cell value)
-  )
-
-
-(define apply-env-ref
-  (lambda (env sym succeed fail) ; succeed and fail are procedures applied if the var is or isn't found, respectively.
-    (cases environment env
-      (empty-env-record ()
-        (apply-env-ref init-env sym succeed fail))
-      
-      (fail-env ()
-        (fail) )
-      
-      (extended-env-record (syms vals env)
-	       (let ((pos (list-find-position sym syms)))
-      	(if (number? pos)
-	      (succeed  (list-ref vals pos))
-	      (apply-env-ref env sym succeed fail))))
-
-
-  [recursively-extended-env-record
-    (procnames idss bodies old-env)
-    (let ([pos
-    (list-find-position sym procnames)])
-    
-    (if (number? pos)
-      
-      (box (closure (list-ref idss pos)
-      (list-ref bodies pos) env) )
-
-
-      
-    (apply-env-ref old-env sym succeed fail)))]
-
-
-      )))
