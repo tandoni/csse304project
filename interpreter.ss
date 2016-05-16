@@ -91,6 +91,25 @@
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
 
+(define eval-set!
+  (lambda (id body envir)
+    (cases environment envir
+      [empty-env-record () '()]
+      [extended-env-record (syms vals env)
+        (let ([pos (list-find-position id syms)])
+          (if (number? pos)
+              (set-cell! (list-ref vals pos) (eval-exp body envir))
+              (cases environment global-env
+                [empty-env-record () '()]
+                [extended-env-record (syms vals env)
+                  (let ([pos (list-find-position id syms)])
+                    (if (number? pos)
+                        (set-cell! (list-ref vals pos) (eval-exp body envir))
+                        ))]
+                [recursively-extended-env-record (proc-names idss bodies old-env)
+                  '()])))]
+      [recursively-extended-env-record (proc-names idss bodies old-env) '()])))
+
 (define eval-while
 	(lambda (test-exp bodies env)
 		(if (eval-exp test-exp env)
@@ -100,26 +119,7 @@
 			)
 			#t)))
 
-(define eval-set!
-  (lambda (id body env)
-    (cases environment env
-      [empty-env-record () (fail)]
-      [extended-env-record (syms vals env)
-        (let ([pos (list-find-position id syms)])
-          (if (number? pos)
-              (replace-val pos (eval-exp body env) vals)
-              (eopl:error 'eval-set! "variable not found")))]
-      [recursively-extended-env-record (proc-names vars bodies env)
-        (let ([pos (list-find-position id proc-names)])
-          (if (number? pos)
-              (replace-val pos (eval-exp body env) bodies)
-              (eopl:error 'eval-set! "varibale not found recursive")))])))
-        
-(define replace-val
-  (lambda (pos val vals)
-    (if (= pos 0)
-        (set-car! vals val)
-        (replace-val (- pos 1) val (cdr vals)))))
+
       
 
 (define eval-and
@@ -154,16 +154,27 @@
 
 (define apply-proc
   (lambda (proc-value args)
-    (cases proc-val proc-value
-      [prim-proc (op) (apply-prim-proc op args)]
-      [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
-	  [dot-closure (vars dot-var bodies env)
-		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
-	  [arb-closure (arb-var bodies env)
-		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
-      [else (error 'apply-proc
-                   "Attempt to apply bad procedure: ~s" 
-                    proc-value)])))
+    (if (box? proc-value)
+        (cases proc-val (unbox proc-value)
+          [prim-proc (op) (apply-prim-proc op args)]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+       	  [dot-closure (vars dot-var bodies env)
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+       	  [arb-closure (arb-var bodies env)
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          [else (error 'apply-proc
+                  "Attempt to apply bad procedure: ~s" 
+                  proc-value)])
+        (cases proc-val proc-value
+          [prim-proc (op) (apply-prim-proc op args)]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+       	  [dot-closure (vars dot-var bodies env)
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+       	  [arb-closure (arb-var bodies env)
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          [else (error 'apply-proc
+                  "Attempt to apply bad procedure: ~s" 
+                  proc-value)]))))
 
 (define syntax-expand
 	(lambda (exp)
@@ -174,8 +185,6 @@
 			[if-else-exp (condition body1 body2) 
 				  (if-else-exp (syntax-expand condition) (syntax-expand body1) (syntax-expand body2))]
 			[lambda-exp (id body) (lambda-exp id (map syntax-expand body))]
-			[let-exp (vars vals body)
-				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
 
                         [letrec-exp (proc-names vars bodies letrec-body)
                                 (letrec-exp proc-names vars (map syntax-expand bodies) (map syntax-expand letrec-body))]
