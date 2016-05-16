@@ -94,21 +94,27 @@
 (define eval-set!
   (lambda (id body envir)
     (cases environment envir
-      [empty-env-record () '()]
+      [empty-env-record () (check-global id body global-env envir)]
       [extended-env-record (syms vals env)
         (let ([pos (list-find-position id syms)])
           (if (number? pos)
               (set-cell! (list-ref vals pos) (eval-exp body envir))
-              (cases environment global-env
-                [empty-env-record () '()]
-                [extended-env-record (syms vals env)
-                  (let ([pos (list-find-position id syms)])
-                    (if (number? pos)
-                        (set-cell! (list-ref vals pos) (eval-exp body envir))
-                        ))]
-                [recursively-extended-env-record (proc-names idss bodies old-env)
-                  '()])))]
+              (check-global id body global-env envir)))]
       [recursively-extended-env-record (proc-names idss bodies old-env) '()])))
+
+(define check-global
+  (lambda (id body global eval-env)
+    (cases environment global
+      [empty-env-record () '()]
+      [extended-env-record (syms vals env)
+        (let ([pos (list-find-position id syms)])
+          (if (number? pos)
+              (begin (display "found it") (set-cell! (list-ref vals pos) (eval-exp body eval-env)))
+              (if (not (equal? env (empty-env-record)))
+                  (check-global id body env eval-env)
+                  )))]
+      [recursively-extended-env-record (proc-names idss bodies old-env)
+        '()])))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -189,6 +195,9 @@
                         [letrec-exp (proc-names vars bodies letrec-body)
                                 (letrec-exp proc-names vars (map syntax-expand bodies) (map syntax-expand letrec-body))]
     
+                        [let-exp (vars vals body)
+				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
+    
                         [named-let-exp (id vars vals body)
                                 (let-exp vars vals (list (letrec-exp (list id) (list vars) (map syntax-expand body) (map syntax-expand body))))]
     
@@ -223,7 +232,7 @@
      (lambda (vars vals body)
           (if (null? (cdr vars))
                (let-exp (list (car vars)) (list (syntax-expand (car vals))) (map syntax-expand body))
-               (let-exp (list (car vars)) (list (syntax-expand (car vals))) (expand-let* (cdr vars) (cdr vals) body)))))
+               (let-exp (list (car vars)) (list (syntax-expand (car vals))) (list (expand-let* (cdr vars) (cdr vals) body))))))
 
 (define expand-case-helper
 	(lambda (key cases bodies)
