@@ -47,6 +47,12 @@
         (eval-rands rands env (rands-k val k))]
       [rands-k (proc-value k)
         (apply-proc proc-value val k)]
+      [let-rands-k (syms env bodies k)
+        (extend-env syms val env (let-extend-k bodies k))]
+      [let-extend-k (bodies k)
+        (eval-in-order bodies val k)]
+      [letrec-extend-k (bodies k)
+        (eval-in-order bodies val k)]
       [while-k (test-exp bodies env k)
         (if val
             (begin
@@ -54,6 +60,23 @@
              	(eval-while test-exp bodies env (while-k test-exp bodies env k))
              	)
             #t)]
+      [and-k (env k)
+        (cond
+          [(null? val) #t]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (let ([condition (eval-exp (car val) env k)])
+                  (if condition
+                     	(eval-or (cdr val) env (or-k env k))
+                     	#f
+                     	))])]
+      [or-k (env k)
+        (cond
+         	[(null? val) #f]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (let ([condition (eval-exp (car val) env k)])
+                  (if condition
+                    		condition
+                    		(eval-or (cdr val) env (or-k env k))))])]
       [id-k (k)
         (k val)]
       )))
@@ -82,10 +105,11 @@
          (eval-exp test-exp env (test-k then-exp else-exp env k))]
 
         [let-exp (vars vals body)
-          (eval-in-order body (extend-env vars (eval-rands vals env (id-k (lambda (v) v))) env) (id-k (lambda (v) v)))]
+          (eval-rands vals env (let-rands-k vars env body k))]
       
         [letrec-exp (proc-names vars bodies letrec-body)
-          (eval-in-order letrec-body (extend-env-recursively proc-names vars bodies env) (id-k (lambda (v) v)))]
+          (extend-env-recursively proc-names vars bodies env
+            (letrec-extend-k letrec-body k))]
       
         [lambda-exp (id body) 
           (closure id body env)]
@@ -103,10 +127,10 @@
   	  (void)]
 
 	[and-exp (args)
-          (eval-and args env)]
+          (eval-and args env (and-k env k))]
 			
 	[or-exp (body)
-          (eval-or body env)]
+          (eval-or body env (or-k env k))]
 
 	[begin-exp (body) 
           (eval-in-order body env)]
@@ -144,30 +168,15 @@
 
 (define eval-while
 	(lambda (test-exp bodies env k)
-		(apply-continuation k (eval-exp test-exp env (id-k (lambda (v) v))))))
-
-
-      
+		(apply-continuation k (eval-exp test-exp env (id-k (lambda (v) v)))))) 
 
 (define eval-and
-	(lambda (body env)
-		(cond
-			[(null? body) #t]
-			[(null? (cdr body)) (eval-exp (car body) env)]
-			[else (let ([condition (eval-exp (car body) env)])
-						(if condition
-							(eval-or (cdr body) env)
-							#f
-						))])))
+  (lambda (body env k)
+    (apply-continuation k body)))
+    
 (define eval-or
-	(lambda (body env)
-		(cond
-			[(null? body) #f]
-			[(null? (cdr body)) (eval-exp (car body) env)]
-			[else (let ([condition (eval-exp (car body) env)])
-						(if condition
-							condition
-							(eval-or (cdr body) env)))])))
+  (lambda (body env k)
+    (apply-continuation k body)))
 
 (define eval-in-order
       (lambda (body env k)

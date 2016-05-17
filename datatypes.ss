@@ -127,7 +127,12 @@
     (then-exp expression?)
     (env environment?)
     (k continuation?)]
-  [while-k 
+  [while-test-k 
+    (test-exp expression?)
+    (bodies (list-of expression?))
+    (env environment?)
+    (k continuation?)]
+  [continue-while-k
     (test-exp expression?)
     (bodies (list-of expression?))
     (env environment?)
@@ -135,11 +140,15 @@
   [and-k
     (env environment?)
     (k continuation?)]
+  [2-and-k
+   (body (list-of expression?))
+   (env environment?)
+   (k continuation?)]
   [or-k
     (env environment?)
     (k continuation?)]
-    
   [id-k
+    (id expression?)
     (k continuation?)]
   )
     

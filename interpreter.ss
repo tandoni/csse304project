@@ -53,22 +53,21 @@
         (eval-in-order bodies val k)]
       [letrec-extend-k (bodies k)
         (eval-in-order bodies val k)]
-      [while-k (test-exp bodies env k)
+      [while-test-k (test-exp bodies env k)
         (if val
-            (begin
-             	(eval-in-order bodies env k)
-             	(eval-while test-exp bodies env (while-k test-exp bodies env k))
-             	)
-            #t)]
+           (eval-in-order bodies env (continue-while-k test-exp bodies env k))
+           #t)]
+      [continue-while-k (test-exp bodies env k)
+        (eval-while test-exp bodies env (while-test-k test-exp bodies env k))]
       [and-k (env k)
         (cond
           [(null? val) #t]
           [(null? (cdr val)) (eval-exp (car val) env k)]
-          [else (let ([condition (eval-exp (car val) env k)])
-                  (if condition
-                     	(eval-or (cdr val) env (or-k env k))
-                     	#f
-                     	))])]
+          [else (eval-exp (car val) env (2-and-k val env k))])]
+      [2-and-k (body env k)
+       (if val
+           (eval-or (cdr body) env (or-k env k))
+           #f)]
       [or-k (env k)
         (cond
          	[(null? val) #f]
@@ -77,8 +76,8 @@
                   (if condition
                     		condition
                     		(eval-or (cdr val) env (or-k env k))))])]
-      [id-k (k)
-        (k val)]
+      [id-k (id k)
+        (id val)]
       )))
 
 (define eval-exp
@@ -121,7 +120,7 @@
          	(arb-closure id body env)]
 
         [while-exp (test-exp bodies)
-          (eval-while test-exp bodies env (while-k test-exp bodies env k))]
+          (eval-while test-exp bodies env (while-test-k test-exp bodies env k))]
 			
 	[void-exp ()
   	  (void)]
@@ -167,8 +166,8 @@
         '()])))
 
 (define eval-while
-	(lambda (test-exp bodies env k)
-		(apply-continuation k (eval-exp test-exp env (id-k (lambda (v) v)))))) 
+  (lambda (test-exp bodies env k)
+    (eval-exp test-exp env k)))
 
 (define eval-and
   (lambda (body env k)
