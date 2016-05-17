@@ -148,6 +148,12 @@
   [or-k
     (env environment?)
     (k continuation?)]
+
+    [begin-k
+    (body (list-of expression?))
+    (env enviroment?)
+    (k continuation?)]
+    
   [id-k
     (id expression?)
     (k continuation?)]

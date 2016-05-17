@@ -62,7 +62,8 @@
       [and-k (env k)
         (cond
           [(null? val) #t]
-          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [(null? (cdr val)) (eval-exp (car val) env k)] [eval-rands-car-k (rands env k) (eval-rands rands env (eval-rands-cdr-k v k)  )]
+
           [else (eval-exp (car val) env (2-and-k val env k))])]
       [2-and-k (body env k)
        (if val
@@ -78,6 +79,8 @@
                     		(eval-or (cdr val) env (or-k env k))))])]
       [id-k (id k)
         (id val)]
+
+        [order-eval-k (body env k) (order-eval body env k)]
       )))
 
 (define eval-exp
@@ -180,7 +183,9 @@
       (lambda (body env k)
             (cond
               [(null? (cdr body)) (eval-exp (car body) env k)]
-              [else (begin (eval-exp (car body) env k) (eval-in-order (cdr body) env k))])))
+              [else (eval-exp (car body) env (order-eval-k (cdr body) env k))])))
+
+
 
 (define eval-rands
   (lambda (rands env k)
