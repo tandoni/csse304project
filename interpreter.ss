@@ -43,6 +43,40 @@
       [test-single-k (then-exp env k)
         (if val
             (eval-exp then-exp env k))]
+      [rator-k (rands env k)
+        (eval-rands rands env (rands-k val k))]
+      [rands-k (proc-value k)
+        (apply-proc proc-value val k)]
+      [let-rands-k (syms env bodies k)
+        (extend-env syms val env (let-extend-k bodies k))]
+      [let-extend-k (bodies k)
+        (eval-in-order bodies val k)]
+      [letrec-extend-k (bodies k)
+        (eval-in-order bodies val k)]
+      [while-k (test-exp bodies env k)
+        (if val
+            (begin
+             	(eval-in-order bodies env k)
+             	(eval-while test-exp bodies env (while-k test-exp bodies env k))
+             	)
+            #t)]
+      [and-k (env k)
+        (cond
+          [(null? val) #t]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (let ([condition (eval-exp (car val) env k)])
+                  (if condition
+                     	(eval-or (cdr val) env (or-k env k))
+                     	#f
+                     	))])]
+      [or-k (env k)
+        (cond
+         	[(null? val) #f]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (let ([condition (eval-exp (car val) env k)])
+                  (if condition
+                    		condition
+                    		(eval-or (cdr val) env (or-k env k))))])]
       [id-k (k)
         (k val)]
       )))
@@ -61,41 +95,46 @@
                                           		                  "variable not found in environment: ~s"
                                                        			   	id)))))]
       	[app-exp (rator rands)
-        	(let ([proc-value (eval-exp rator env)]
-             	[args (eval-rands rands env)])
-          		(apply-proc proc-value args))]
+        	(let* ([proc-value (eval-exp rator env (rator-k rands env k))]
+             	[args (eval-rands rands env (rands-k proc-value k))])
+          		(apply-proc proc-value args k))]
 
       	[if-exp (condition body)
-            (eval-exp test-exp env (test-single-k then-exp env k))]
+         (eval-exp test-exp env (test-single-k then-exp env k))]
       	[if-else-exp (condition body1 body2)
-            (eval-exp test-exp env (test-k then-exp else-exp env k))]
+         (eval-exp test-exp env (test-k then-exp else-exp env k))]
 
         [let-exp (vars vals body)
-            (eval-in-order body (extend-env vars (eval-rands vals env) env))]
+          (eval-rands vals env (let-rands-k vars env body k))]
       
         [letrec-exp (proc-names vars bodies letrec-body)
-            (eval-in-order letrec-body (extend-env-recursively proc-names vars bodies env))]
+          (extend-env-recursively proc-names vars bodies env
+            (letrec-extend-k letrec-body k))]
       
         [lambda-exp (id body) 
-            (closure id body env)]
+          (closure id body env)]
 			
-		[lambda-dot-exp (id arbitrary-id body)
-			(dot-closure id arbitrary-id body env)]
+        [lambda-dot-exp (id arbitrary-id body)
+         	(dot-closure id arbitrary-id body env)]
 			
         [lambda-arbitrary-exp (id body)
-			(arb-closure id body env)]
+         	(arb-closure id body env)]
 
         [while-exp (test-exp bodies)
-			(eval-while test-exp bodies env)]
+          (eval-while test-exp bodies env (while-k test-exp bodies env k))]
 			
-		[void-exp ()
-			(void)]
+	[void-exp ()
+  	  (void)]
 
-		[and-exp (args) (eval-and args env)]
+	[and-exp (args)
+          (eval-and args env (and-k env k))]
 			
-		[or-exp (body) (eval-or body env)]
+	[or-exp (body)
+          (eval-or body env (or-k env k))]
 
-		[begin-exp (body) (eval-in-order body env)]
+	[begin-exp (body) 
+          (eval-in-order body env)]
+            
         [set!-exp (id body) (eval-set! id body env env)]
         
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
@@ -128,67 +167,57 @@
         '()])))
 
 (define eval-while
-	(lambda (test-exp bodies env)
-		(if (eval-exp test-exp env)
-			(begin
-				(eval-in-order bodies env)
-				(eval-while test-exp bodies env)
-			)
-			#t)))
-
-
-      
+	(lambda (test-exp bodies env k)
+		(apply-continuation k (eval-exp test-exp env (id-k (lambda (v) v)))))) 
 
 (define eval-and
-	(lambda (body env)
-		(cond
-			[(null? body) #t]
-			[(null? (cdr body)) (eval-exp (car body) env)]
-			[else (let ([condition (eval-exp (car body) env)])
-						(if condition
-							(eval-or (cdr body) env)
-							#f
-						))])))
+  (lambda (body env k)
+    (apply-continuation k body)))
+    
 (define eval-or
-	(lambda (body env)
-		(cond
-			[(null? body) #f]
-			[(null? (cdr body)) (eval-exp (car body) env)]
-			[else (let ([condition (eval-exp (car body) env)])
-						(if condition
-							condition
-							(eval-or (cdr body) env)))])))
+  (lambda (body env k)
+    (apply-continuation k body)))
 
 (define eval-in-order
-      (lambda (body env)
+      (lambda (body env k)
             (cond
-              [(null? (cdr body)) (eval-exp (car body) env)]
-              [else (begin (eval-exp (car body) env) (eval-in-order (cdr body) env))])))
+              [(null? (cdr body)) (eval-exp (car body) env k)]
+              [else (begin (eval-exp (car body) env k) (eval-in-order (cdr body) env k))])))
 
 (define eval-rands
-  (lambda (rands env)
-    (map (lambda (expr) (eval-exp expr env)) rands)))
+  (lambda (rands env k)
+    (apply-continuation k (map-cps (lambda (expr) (eval-exp expr env (id-k (lambda(v) v)))) rands (id-k (lambda (v) v))))))
+                        
+(define map-cps
+  (lambda (proc-cps ls k)
+    (cond
+      [(null? ls) (apply-continuation k '())]
+      [else (proc-cps (car ls) (lambda (v) (if (null? (cdr ls))
+                                               (apply-continuation k v)
+                                               (map-cps proc-cps (cdr ls) (lambda (c) (if (list? c)
+                                                                                          (apply-continuation k (cons* v c))
+                                                                                          (apply-continuation k (cons* v (list c)))))))))]))
 
 (define apply-proc
-  (lambda (proc-value args)
+  (lambda (proc-value args k)
     (if (box? proc-value)
         (cases proc-val (unbox proc-value)
-          [prim-proc (op) (apply-prim-proc op args)]
-          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+          [prim-proc (op) (apply-continuation k (apply-prim-proc op args))]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env) k)]
        	  [dot-closure (vars dot-var bodies env)
-          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env) k)]
        	  [arb-closure (arb-var bodies env)
-          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env) k)]
           [else (error 'apply-proc
                   "Attempt to apply bad procedure: ~s" 
                   proc-value)])
         (cases proc-val proc-value
-          [prim-proc (op) (apply-prim-proc op args)]
-          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+          [prim-proc (op) (apply-continuation k (apply-prim-proc op args))]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env) k)]
        	  [dot-closure (vars dot-var bodies env)
-          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env) k)]
        	  [arb-closure (arb-var bodies env)
-          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env) k)]
           [else (error 'apply-proc
                   "Attempt to apply bad procedure: ~s" 
                   proc-value)]))))

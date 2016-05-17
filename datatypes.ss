@@ -105,11 +105,41 @@
     (else-exp expression?)
     (env environment?)
     (k continuation?)]
+  [rator-k
+    (rands (list-of expression?))
+    (env environment?)
+    (k continuation?)]
+  [rands-k
+    (proc-value scheme-value?)
+    (k continuation?)]
+  [let-rands-k
+    (syms (list-of symbol?))
+    (env environment?)
+    (bodies (list-of expression?))
+    (k continuation?)]
+  [let-extend-k
+    (bodies (list-of expression?))
+    (k continuation?)]
+  [letrec-extend-k
+    (bodies (list-of expression?))
+    (k continuation?)]
   [test-single-k
     (then-exp expression?)
     (env environment?)
     (k continuation?)]
+  [while-k 
+    (test-exp expression?)
+    (bodies (list-of expression?))
+    (env environment?)
+    (k continuation?)]
+  [and-k
+    (env environment?)
+    (k continuation?)]
+  [or-k
+    (env environment?)
+    (k continuation?)]
+    
   [id-k
     (k continuation?)]
   )
-
+    
