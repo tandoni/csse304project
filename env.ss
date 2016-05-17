@@ -5,13 +5,13 @@
     (empty-env-record)))
 
 (define extend-env
-  (lambda (syms vals env)
-    (extended-env-record syms (map cell vals) env)))
+  (lambda (syms vals env k)
+    (apply-k (extended-env-record syms (map-cps cell vals (id-k (lambda (v) v))) env))))
 
 (define extend-env-recursively
-  (lambda (proc-names idss bodies old-env)
-    (recursively-extended-env-record
-      proc-names idss bodies old-env)))
+  (lambda (proc-names idss bodies old-env k)
+    (apply-k k (recursively-extended-env-record
+      proc-names idss bodies old-env))))
 	
 (define dot-extend-env
 	(lambda (syms dot-var vals env)
@@ -25,8 +25,8 @@
 			)))
 
 (define cell
-  (lambda (item)
-    (box item)))
+  (lambda (item k)
+    (apply-k (box item))))
 
 
 (define cell-ref
