@@ -99,5 +99,17 @@
     (bodies (list-of expression?))
     (env environment?)))
 
-
+(define-datatype continuation continuation?
+  [test-k
+    (then-exp expression?)
+    (else-exp expression?)
+    (env environment?)
+    (k continuation?)]
+  [test-single-k
+    (then-exp expression?)
+    (env environment?)
+    (k continuation?)]
+  [id-k
+    (k continuation?)]
+  )
 

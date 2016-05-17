@@ -4,7 +4,7 @@
               assq eq? equal? atom? length list->vector list? pair?
               procedure? vector->list vector vector? number? symbol?
               caar cadr cadar >= <= > < make-vector vector-ref set-car! set-cdr! display newline
-              map apply quotient vector-set! member list-tail append eqv?))
+              map apply quotient vector-set! member list-tail append eqv? display newline))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -33,32 +33,42 @@
       [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env))]
       [else (eval-exp form (empty-env))])))
 
+(define apply-k
+  (lambda (k val)
+    (cases continuation k
+      [test-k (then-exp else-exp env k)
+        (if val
+            (eval-exp then-exp env k)
+            (eval-exp else-exp env k))]
+      [test-single-k (then-exp env k)
+        (if val
+            (eval-exp then-exp env k))]
+      [id-k (k)
+        (k val)]
+      )))
 
 (define eval-exp
-  (lambda (exp env)
+  (lambda (exp env k)
     (cases expression exp	
-      	[lit-exp (datum) datum]
+      	[lit-exp (datum) (apply-k (id-k k) datum]
 
-      	[var-exp (id)
-				    (apply-env env id
-      	  	  (lambda (x) x) 
-           	  (lambda ()
-                (apply-env global-env
-                  id
-                  (lambda (x) x)
-                  (lambda ()
-                    (eopl:error 'apply-env
-		                  "variable not found in environment: ~s"
-			   	id)))))]
+      	[var-exp (id) (apply-env env id k (lambda ()
+                                                        (apply-env global-env
+                                                          id
+                                                          (lambda (x) x)
+                                                          (lambda ()
+                                                            (eopl:error 'apply-env
+                                          		                  "variable not found in environment: ~s"
+                                                       			   	id)))))]
       	[app-exp (rator rands)
         	(let ([proc-value (eval-exp rator env)]
              	[args (eval-rands rands env)])
           		(apply-proc proc-value args))]
 
       	[if-exp (condition body)
-            (if (eval-exp condition env) (eval-exp body env))]
+            (eval-exp test-exp env (test-single-k then-exp env k))]
       	[if-else-exp (condition body1 body2)
-            (if (eval-exp condition env) (eval-exp body1 env) (eval-exp body2 env))]
+            (eval-exp test-exp env (test-k then-exp else-exp env k))]
 
         [let-exp (vars vals body)
             (eval-in-order body (extend-env vars (eval-rands vals env) env))]
@@ -86,21 +96,22 @@
 		[or-exp (body) (eval-or body env)]
 
 		[begin-exp (body) (eval-in-order body env)]
-        [set!-exp (id body) (eval-set! id body env)]
+        [set!-exp (id body) (eval-set! id body env env)]
         
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
 
 (define eval-set!
-  (lambda (id body envir)
-    (cases environment envir
-      [empty-env-record () (check-global id body global-env envir)]
+  (lambda (id body new-env eval-env)
+    (cases environment new-env
+      [empty-env-record () (check-global id body global-env eval-env)]
       [extended-env-record (syms vals env)
         (let ([pos (list-find-position id syms)])
           (if (number? pos)
-              (set-cell! (list-ref vals pos) (eval-exp body envir))
-              (check-global id body global-env envir)))]
-      [recursively-extended-env-record (proc-names idss bodies old-env) '()])))
+              (set-cell! (list-ref vals pos) (eval-exp body eval-env))
+              (eval-set! id body env eval-env)))]
+      [recursively-extended-env-record (proc-names idss bodies old-env)
+        (eval-set! id body old-env old-env)])))
 
 (define check-global
   (lambda (id body global eval-env)
@@ -260,6 +271,8 @@
       [(/) (apply / args)]
       [(not) (not (car args))]
       [(zero?) (zero? (car args))]
+      [(display) (display (car args))]
+      [(newline) (newline)]
 
       [(car) (car (car args))]
       [(cdr) (cdr (car args))]

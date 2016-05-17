@@ -94,24 +94,25 @@
 (define eval-set!
   (lambda (id body envir)
     (cases environment envir
-      [empty-env-record () (check-global id body envir envir)]
+      [empty-env-record () (check-global id body global-env envir)]
       [extended-env-record (syms vals env)
         (let ([pos (list-find-position id syms)])
           (if (number? pos)
               (set-cell! (list-ref vals pos) (eval-exp body envir))
-              (check-global id body envir envir)))]
+              (check-global id body global-env envir)))]
       [recursively-extended-env-record (proc-names idss bodies old-env) '()])))
 
 (define check-global
-  (lambda (id body envir eval-env)
-    (cases environment global-env
+  (lambda (id body global eval-env)
+    (cases environment global
       [empty-env-record () '()]
       [extended-env-record (syms vals env)
         (let ([pos (list-find-position id syms)])
           (if (number? pos)
-              (set-cell! (list-ref vals pos) (eval-exp body eval-env))
+              (begin (display "found it") (set-cell! (list-ref vals pos) (eval-exp body eval-env)))
               (if (not (equal? env (empty-env-record)))
-                  (check-global id body env eval-env))))]
+                  (check-global id body env eval-env)
+                  )))]
       [recursively-extended-env-record (proc-names idss bodies old-env)
         '()])))
 
