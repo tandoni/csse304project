@@ -72,12 +72,17 @@
         (cond
          	[(null? val) #f]
           [(null? (cdr val)) (eval-exp (car val) env k)]
-          [else (let ([condition (eval-exp (car val) env k)])
-                  (if condition
-                    		condition
-                    		(eval-or (cdr val) env (or-k env k))))])]
-      [id-k (id k)
-        (id val)]
+          [else (eval-exp (car val) env (2-or-k val env k))])]
+      [2-or-k (body env k)
+       (if val
+         val
+         (eval-or (cdr body) env (or-k env k)))]
+      [pos-set!-k (id body vals env eval-env)
+        (if (number? val)
+            (eval-exp body eval-env (2-pos-set!-k val vals))
+            (eval-set! id body env eval-env k))]
+      [2-pos-set!-k (pos vals)
+        (set-cell! (list-ref vals pos) val)]
       )))
 
 (define eval-exp
@@ -130,39 +135,32 @@
 			
 	[or-exp (body)
           (eval-or body env (or-k env k))]
+                          
 	[begin-exp (body) 
           (eval-in-order body env)]
                           
-        [set!-exp (id body) (eval-set! id body env env)]
+        [set!-exp (id body) (eval-set! id body env env k)]
         
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
 
 (define eval-set!
-  (lambda (id body new-env eval-env)
+  (lambda (id body new-env eval-env k)
     (cases environment new-env
-      [empty-env-record () (check-global id body global-env eval-env)]
+      [empty-env-record () (check-global id body global-env eval-env k)]
       [extended-env-record (syms vals env)
-        (let ([pos (list-find-position id syms)])
-          (if (number? pos)
-              (set-cell! (list-ref vals pos) (eval-exp body eval-env))
-              (eval-set! id body env eval-env)))]
+        (list-find-position id syms (pos-set!-k id body vals env eval-env))]
       [recursively-extended-env-record (proc-names idss bodies old-env)
-        (eval-set! id body old-env old-env)])))
+        (eval-set! id body old-env old-env k)])))
 
 (define check-global
-  (lambda (id body global eval-env)
+  (lambda (id body global eval-env k)
     (cases environment global
-      [empty-env-record () '()]
+      [empty-env-record () (apply-k k '())]
       [extended-env-record (syms vals env)
-        (let ([pos (list-find-position id syms)])
-          (if (number? pos)
-              (begin (display "found it") (set-cell! (list-ref vals pos) (eval-exp body eval-env)))
-              (if (not (equal? env (empty-env-record)))
-                  (check-global id body env eval-env)
-                  )))]
+        (list-find-position id syms (pos-set!-k id body vals env eval-env))]
       [recursively-extended-env-record (proc-names idss bodies old-env)
-        '()])))
+        (apply-k k '())])))
 
 (define eval-while
   (lambda (test-exp bodies env k)

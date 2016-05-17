@@ -148,7 +148,13 @@
   [or-k
     (env environment?)
     (k continuation?)]
-  [id-k
-    (id expression?)
-    (k continuation?)]
+  [pos-set!-k
+    (id symbol?)
+    (body (list-of expression?))
+    (vals (list-of scheme-value?))
+    (env environment?)
+    (eval-env environment?)]
+  [2-pos-set!-k
+   (pos number?)
+   (vals (list-of scheme-value?))]
   )
