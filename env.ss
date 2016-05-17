@@ -6,7 +6,7 @@
 
 (define extend-env
   (lambda (syms vals env)
-    (extended-env-record syms (map box vals) env)))
+    (extended-env-record syms (map cell vals) env)))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env)
@@ -23,6 +23,23 @@
     (if (zero? len)
         (list vals)
         (cons (car vals) (dot-env-helper (- len 1)(cdr vals))))))
+
+(define cell
+  (lambda (item)
+    (box item)))
+
+
+(define cell-ref
+  (lambda (item)
+    (unbox item)))
+
+(define cell?
+  (lambda (item)
+    (box? item)))
+
+(define set-cell!
+  (lambda (item val)
+    (set-box! item val)))
 
 (define list-find-position
   (lambda (sym los)
@@ -70,26 +87,13 @@
         (fail) )
       
       (extended-env-record (syms vals env)
-	       (let ((pos (list-find-position sym syms)))
-      	(if (number? pos)
-	      (succeed  (list-ref vals pos))
-	      (apply-env-ref env sym succeed fail))))
-
-
-  [recursively-extended-env-record
-    (procnames idss bodies old-env)
-    (let ([pos
-    (list-find-position sym procnames)])
-    
-    (if (number? pos)
-      
-      (box (closure (list-ref idss pos)
-      (list-ref bodies pos) env) )
-
-
-      
-    (apply-env-ref old-env sym succeed fail)))]
-
-
-      )))
+	(let ((pos (list-find-position sym syms)))
+      	  (if (number? pos)
+	      (succeed (unbox (list-ref vals pos)))
+	      (apply-env env sym succeed fail))))
+      [recursively-extended-env-record (proc-names idss bodies old-env)
+        (let ([pos (list-find-position sym proc-names)])
+          (if (number? pos)
+              (closure (list-ref idss pos) (list (list-ref bodies pos)) env)
+              (apply-env old-env sym succeed fail)))])))
 

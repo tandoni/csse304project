@@ -35,7 +35,7 @@
                  (body (list-of expression?))]
     [set!-exp  (id symbol?)
              (body expression?)]
-    [define-exp (name symbol?) (val (list-of (list-of expression?)))]
+    [define-exp (name symbol?) (val (list-of expression?))]
 
     [cond-exp
       (conditions (list-of expression?))
@@ -98,4 +98,23 @@
     (proc-names (list-of symbol?))
     (vars (list-of (list-of symbol?)))
     (bodies (list-of expression?))
+<<<<<<< HEAD
     (env environment?)))
+=======
+    (env environment?)))
+
+(define-datatype continuation continuation?
+  [test-k
+    (then-exp expression?)
+    (else-exp expression?)
+    (env environment?)
+    (k continuation?)]
+  [test-single-k
+    (then-exp expression?)
+    (env environment?)
+    (k continuation?)]
+  [id-k
+    (k continuation?)]
+  )
+
+>>>>>>> define

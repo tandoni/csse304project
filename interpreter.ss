@@ -4,7 +4,7 @@
               assq eq? equal? atom? length list->vector list? pair?
               procedure? vector->list vector vector? number? symbol?
               caar cadr cadar >= <= > < make-vector vector-ref set-car! set-cdr! display newline
-              map apply quotient vector-set! member list-tail append eqv?))
+              map apply quotient vector-set! member list-tail append eqv? display newline))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -33,32 +33,42 @@
       [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env))]
       [else (eval-exp form (empty-env))])))
 
+(define apply-k
+  (lambda (k val)
+    (cases continuation k
+      [test-k (then-exp else-exp env k)
+        (if val
+            (eval-exp then-exp env k)
+            (eval-exp else-exp env k))]
+      [test-single-k (then-exp env k)
+        (if val
+            (eval-exp then-exp env k))]
+      [id-k (k)
+        (k val)]
+      )))
 
 (define eval-exp
-  (lambda (exp env)
+  (lambda (exp env k)
     (cases expression exp	
-      	[lit-exp (datum) datum]
+      	[lit-exp (datum) (apply-k (id-k k) datum]
 
-      	[var-exp (id)
-				    (apply-env env id
-      	  	  (lambda (x) x) 
-           	  (lambda ()
-                (apply-env global-env
-                  id
-                  (lambda (x) x)
-                  (lambda ()
-                    (eopl:error 'apply-env
-		                  "variable not found in environment: ~s"
-			   	id)))))]
+      	[var-exp (id) (apply-env env id k (lambda ()
+                                                        (apply-env global-env
+                                                          id
+                                                          (lambda (x) x)
+                                                          (lambda ()
+                                                            (eopl:error 'apply-env
+                                          		                  "variable not found in environment: ~s"
+                                                       			   	id)))))]
       	[app-exp (rator rands)
         	(let ([proc-value (eval-exp rator env)]
              	[args (eval-rands rands env)])
           		(apply-proc proc-value args))]
 
       	[if-exp (condition body)
-            (if (eval-exp condition env) (eval-exp body env))]
+            (eval-exp test-exp env (test-single-k then-exp env k))]
       	[if-else-exp (condition body1 body2)
-            (if (eval-exp condition env) (eval-exp body1 env) (eval-exp body2 env))]
+            (eval-exp test-exp env (test-k then-exp else-exp env k))]
 
         [let-exp (vars vals body)
             (eval-in-order body (extend-env vars (eval-rands vals env) env))]
@@ -86,17 +96,37 @@
 		[or-exp (body) (eval-or body env)]
 
 		[begin-exp (body) (eval-in-order body env)]
-        [set!-exp (id body) (eval-set! id body env)]
+                          
+        [set!-exp (id body) (eval-set! id body env env)]
+        
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
 	)))
 
 (define eval-set!
-	(lambda (id body env)
-		(let ([val (eval-exp body env)] [sym (apply-env-ref env id (lambda (x)
-								x) (lambda () (eopl:error 'set! "variable not found ~s" id)))])
-		(if (box? (unbox sym))
-			(set-box! (unbox sym) val)
-			(set-box! sym val)))))
+  (lambda (id body new-env eval-env)
+    (cases environment new-env
+      [empty-env-record () (check-global id body global-env eval-env)]
+      [extended-env-record (syms vals env)
+        (let ([pos (list-find-position id syms)])
+          (if (number? pos)
+              (set-cell! (list-ref vals pos) (eval-exp body eval-env))
+              (eval-set! id body env eval-env)))]
+      [recursively-extended-env-record (proc-names idss bodies old-env)
+        (eval-set! id body old-env old-env)])))
+
+(define check-global
+  (lambda (id body global eval-env)
+    (cases environment global
+      [empty-env-record () '()]
+      [extended-env-record (syms vals env)
+        (let ([pos (list-find-position id syms)])
+          (if (number? pos)
+              (begin (display "found it") (set-cell! (list-ref vals pos) (eval-exp body eval-env)))
+              (if (not (equal? env (empty-env-record)))
+                  (check-global id body env eval-env)
+                  )))]
+      [recursively-extended-env-record (proc-names idss bodies old-env)
+        '()])))
 
 (define eval-while
 	(lambda (test-exp bodies env)
@@ -106,6 +136,9 @@
 				(eval-while test-exp bodies env)
 			)
 			#t)))
+
+
+      
 
 (define eval-and
 	(lambda (body env)
@@ -139,16 +172,27 @@
 
 (define apply-proc
   (lambda (proc-value args)
-    (cases proc-val proc-value
-      [prim-proc (op) (apply-prim-proc op args)]
-      [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
-	  [dot-closure (vars dot-var bodies env)
-		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
-	  [arb-closure (arb-var bodies env)
-		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
-      [else (error 'apply-proc
-                   "Attempt to apply bad procedure: ~s" 
-                    proc-value)])))
+    (if (box? proc-value)
+        (cases proc-val (unbox proc-value)
+          [prim-proc (op) (apply-prim-proc op args)]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+       	  [dot-closure (vars dot-var bodies env)
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+       	  [arb-closure (arb-var bodies env)
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          [else (error 'apply-proc
+                  "Attempt to apply bad procedure: ~s" 
+                  proc-value)])
+        (cases proc-val proc-value
+          [prim-proc (op) (apply-prim-proc op args)]
+          [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env))]
+       	  [dot-closure (vars dot-var bodies env)
+          		(eval-in-order bodies (dot-extend-env vars dot-var args env))]
+       	  [arb-closure (arb-var bodies env)
+          		(eval-in-order bodies (extend-env (list arb-var) (list args) env))]
+          [else (error 'apply-proc
+                  "Attempt to apply bad procedure: ~s" 
+                  proc-value)]))))
 
 (define syntax-expand
 	(lambda (exp)
@@ -159,11 +203,12 @@
 			[if-else-exp (condition body1 body2) 
 				  (if-else-exp (syntax-expand condition) (syntax-expand body1) (syntax-expand body2))]
 			[lambda-exp (id body) (lambda-exp id (map syntax-expand body))]
-			[let-exp (vars vals body)
-				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
 
                         [letrec-exp (proc-names vars bodies letrec-body)
                                 (letrec-exp proc-names vars (map syntax-expand bodies) (map syntax-expand letrec-body))]
+    
+                        [let-exp (vars vals body)
+				(app-exp (lambda-exp vars (map syntax-expand body)) (map syntax-expand vals))]
     
                         [named-let-exp (id vars vals body)
                                 (let-exp vars vals (list (letrec-exp (list id) (list vars) (map syntax-expand body) (map syntax-expand body))))]
@@ -199,7 +244,7 @@
      (lambda (vars vals body)
           (if (null? (cdr vars))
                (let-exp (list (car vars)) (list (syntax-expand (car vals))) (map syntax-expand body))
-               (let-exp (list (car vars)) (list (syntax-expand (car vals))) (expand-let* (cdr vars) (cdr vals) body)))))
+               (let-exp (list (car vars)) (list (syntax-expand (car vals))) (list (expand-let* (cdr vars) (cdr vals) body))))))
 
 (define expand-case-helper
 	(lambda (key cases bodies)
@@ -227,6 +272,8 @@
       [(/) (apply / args)]
       [(not) (not (car args))]
       [(zero?) (zero? (car args))]
+      [(display) (display (car args))]
+      [(newline) (newline)]
 
       [(car) (car (car args))]
       [(cdr) (cdr (car args))]
