@@ -163,21 +163,14 @@
       (display-results correct answers equal?)))
 
 (define (test-exit-list)
-    (let ([correct '(
-		     (6 7)
-		     (5)
-		     (3)
-		     12
-		     (12)
-)]
+    (let ([correct '((6 7) (5) (3) 12 (12))]
           [answers 
             (list 
 	     (eval-one-exp ' (+ 4 (exit-list 5 (exit-list 6 7))) )
 	     (eval-one-exp ' (+ 3 (- 2 (exit-list 5))))
 	     (eval-one-exp ' (- 7 (if (exit-list 3) 4 5)))
 	     (eval-one-exp '(call/cc (lambda (k) (+ 100 (exit-list (+ 3 (k 12)))))))
-	     (eval-one-exp '(call/cc (lambda (k) (+ 100 (k (+ 3 (exit-list 12))))))))
-)])
+	     (eval-one-exp '(call/cc (lambda (k) (+ 100 (k (+ 3 (exit-list 12))))))))])
       (display-results correct answers equal?)))
 
 
@@ -307,4 +300,3 @@
 )
 
 (define r run-all)
-
