@@ -153,8 +153,11 @@
     (body (list-of expression?))
     (vals (list-of scheme-value?))
     (env environment?)
-    (eval-env environment?)]
+    (eval-env environment?)
+    (k continuation?)]
   [2-pos-set!-k
    (pos number?)
-   (vals (list-of scheme-value?))]
+   (vals (list-of scheme-value?))
+   (k continuation?)]
+  [id-k]
   )

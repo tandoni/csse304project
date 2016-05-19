@@ -6,7 +6,7 @@
 
 (define extend-env
   (lambda (syms vals env k)
-    (apply-k (extended-env-record syms (map-cps cell vals (id-k (lambda (v) v))) env))))
+    (apply-k k (extended-env-record syms (map-cps cell vals k) env))))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env k)
@@ -63,7 +63,7 @@
       (extended-env-record (syms vals env)
 	(let ((pos (list-find-position sym syms)))
       	  (if (number? pos)
-	      (succeed (unbox (list-ref vals pos)))
+	      (apply-k succeed (unbox (list-ref vals pos)))
 	      (apply-env env sym succeed fail))))
       [recursively-extended-env-record (proc-names idss bodies old-env)
         (let ([pos (list-find-position sym proc-names)])
