@@ -162,7 +162,7 @@
   [2-pos-set!-k
    (pos number?)
    (vals (list-of scheme-value?))]
-  [id-k]
+  [id-k-record]
   [order-eval-k
     (body (list-of expression?))
     (env environment?)

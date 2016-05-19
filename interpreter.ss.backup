@@ -24,75 +24,20 @@
 
 
 (define top-level-eval
-  (lambda (form k)
+  (lambda (form)
     (cases expression form
       [begin-exp (body) (if (equal? (caar body) 'define-exp)
                                 (begin (set! global-env
-                                         (extend-env (list (cadar body)) (list (eval-exp (caar (cddr (car body))) global-env)) global-env k))
-                                  (top-level-eval (begin-exp (cdr body)) k))
-                                (eval-exp form global-env k))]
-      [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env k))]
-      [else (eval-exp form (empty-env) k)])))
-
-(define apply-k
-  (lambda (k val)
-    (cases continuation k
-      [test-k (then-exp else-exp env k)
-        (if val
-            (eval-exp then-exp env k)
-            (eval-exp else-exp env k))]
-      [test-single-k (then-exp env k)
-        (if val
-            (eval-exp then-exp env k))]
-      [rator-k (rands env k)
-        (eval-rands rands env (rands-k val k))]
-      [rands-k (proc-value k)
-        (apply-proc proc-value val k)]
-      [let-rands-k (syms env bodies k)
-        (extend-env syms val env (let-extend-k bodies k))]
-      [let-extend-k (bodies k)
-        (eval-in-order bodies val k)]
-      [letrec-extend-k (bodies k)
-        (eval-in-order bodies val k)]
-      [while-test-k (test-exp bodies env k)
-        (if val
-           (eval-in-order bodies env (continue-while-k test-exp bodies env k))
-           #t)]
-      [continue-while-k (test-exp bodies env k)
-        (eval-while test-exp bodies env (while-test-k test-exp bodies env k))]
-      [and-k (env k)
-        (cond
-          [(null? val) #t]
-          [(null? (cdr val)) (eval-exp (car val) env k)]
-          [else (eval-exp (car val) env (2-and-k val env k))])]
-      [2-and-k (body env k)
-       (if val
-           (eval-or (cdr body) env (or-k env k))
-           #f)]
-      [or-k (env k)
-        (cond
-         	[(null? val) #f]
-          [(null? (cdr val)) (eval-exp (car val) env k)]
-          [else (eval-exp (car val) env (2-or-k val env k))])]
-      [2-or-k (body env k)
-       (if val
-         val
-         (eval-or (cdr body) env (or-k env k)))]
-      [pos-set!-k (id body vals env eval-env k)
-        (if (number? val)
-            (eval-exp body eval-env (2-pos-set!-k val vals))
-            (eval-set! id body env eval-env k))]
-      [2-pos-set!-k (pos vals)
-        (set-cell! (list-ref vals pos) val)]
-
-      [order-eval-k (body env k) (eval-in-order body env k)]
-      [id-k () ((lambda (v) v) val)]
-      )))
+                                         (extend-env (list (cadar body)) (list (eval-exp (caar (cddr (car body))) global-env)) global-env (id-k)))
+                                  (top-level-eval (begin-exp (cdr body))))
+                                (eval-exp form global-env (id-k)))]
+      [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env (id-k)))]
+      [else (eval-exp form (empty-env) (id-k))])))
 
 (define eval-exp
   (lambda (exp env k)
     (cases expression exp	
-      	[lit-exp (datum) (apply-k (id-k) datum)]
+      	[lit-exp (datum) (apply-k k datum)]
 
       	[var-exp (id) (apply-env env id k (lambda ()
                                                         (apply-env global-env
@@ -153,7 +98,7 @@
     (cases environment new-env
       [empty-env-record () (check-global id body global-env eval-env k)]
       [extended-env-record (syms vals env)
-        (list-find-position id syms (pos-set!-k id body vals env eval-env k))]
+        (apply-k (pos-set!-k id body vals env eval-env k) (list-find-position id syms)]
       [recursively-extended-env-record (proc-names idss bodies old-env)
         (eval-set! id body old-env old-env k)])))
 
@@ -162,7 +107,7 @@
     (cases environment global
       [empty-env-record () (apply-k k '())]
       [extended-env-record (syms vals env)
-        (list-find-position id syms (pos-set!-k id body vals env eval-env k))]
+        (apply-k (pos-set!-k id body vals env eval-env k) (list-find-position id syms)]
       [recursively-extended-env-record (proc-names idss bodies old-env)
         (apply-k k '())])))
 
@@ -183,16 +128,6 @@
             (cond
               [(null? (cdr body)) (eval-exp (car body) env k)]
               [else (eval-exp (car body) env (order-eval-k (cdr body) env k))])))
-
-(define map-cps
-  (lambda (proc-cps ls k)
-    (cond
-      [(null? ls) (apply-continuation k '())]
-      [else (proc-cps (car ls) (lambda (v) (if (null? (cdr ls))
-                                               (apply-continuation k v)
-                                               (map-cps proc-cps (cdr ls) (lambda (c) (if (list? c)
-                                                                                          (apply-continuation k (cons* v c))
-                                                                                          (apply-continuation k (cons* v (list c)))))))))]))) 
                           
 (define eval-rands
   (lambda (rands env k)
@@ -359,7 +294,7 @@
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (top-level-eval (syntax-expand (parse-exp x)) (id-k))))
+  (lambda (x) (top-level-eval (syntax-expand (parse-exp x)))))
 
 
 (define check-ref

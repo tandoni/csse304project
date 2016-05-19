@@ -6,7 +6,8 @@
 
 (define extend-env
   (lambda (syms vals env k)
-    (apply-k k (extended-env-record syms (map-cps cell vals k) env))))
+    (display "extend-env")
+    (apply-k k (extended-env-record syms (map cell vals) env))))
 
 (define extend-env-recursively
   (lambda (proc-names idss bodies old-env k)
@@ -25,8 +26,8 @@
 			)))
 
 (define cell
-  (lambda (item k)
-    (apply-k (box item))))
+  (lambda (item)
+    (box item)))
 
 
 (define cell-ref
@@ -129,5 +130,5 @@
         (set-cell! (list-ref vals pos) val)]
 
       [order-eval-k (body env k) (eval-in-order body env k)]
-      [id-k () ((lambda (v) v) val)]
+      [id-k-record () val]
       )))
