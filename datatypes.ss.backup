@@ -159,6 +159,5 @@
    (pos number?)
    (vals (list-of scheme-value?))
    (k continuation?)]
-  [id-k
-    (k continuation?)]
+  [id-k]
   )

@@ -92,7 +92,7 @@
 (define eval-exp
   (lambda (exp env k)
     (cases expression exp	
-      	[lit-exp (datum) (apply-k (id-k) datum]
+      	[lit-exp (datum) (apply-k (id-k) datum)]
 
       	[var-exp (id) (apply-env env id k (lambda ()
                                                         (apply-env global-env
@@ -145,8 +145,8 @@
                           
         [set!-exp (id body) (eval-set! id body env env k)]
         
-      	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)]
-	)))
+      	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)])))
+	
 
 (define eval-set!
   (lambda (id body new-env eval-env k)
@@ -192,11 +192,11 @@
                                                (apply-continuation k v)
                                                (map-cps proc-cps (cdr ls) (lambda (c) (if (list? c)
                                                                                           (apply-continuation k (cons* v c))
-                                                                                          (apply-continuation k (cons* v (list c)))))))))])))                          
+                                                                                          (apply-continuation k (cons* v (list c)))))))))]))) 
                           
 (define eval-rands
   (lambda (rands env k)
-    (map-cps (lambda (expr k) (eval-exp expr env k)) rands k)))
+    (map-cps (lambda (expr k) (eval-exp expr env k)) rands (id-k))))
                         
 
 (define apply-proc
