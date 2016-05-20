@@ -162,10 +162,67 @@
   [2-pos-set!-k
    (pos number?)
    (vals (list-of scheme-value?))]
-  [id-k-record]
+  [id-k]
   [order-eval-k
     (body (list-of expression?))
     (env environment?)
     (k continuation?)]
     
   )
+
+
+
+(define apply-k
+  (lambda (k val)
+    (cases continuation k
+      [test-k (then-exp else-exp env k)
+        (if val
+            (eval-exp then-exp env k)
+            (eval-exp else-exp env k))]
+      [test-single-k (then-exp env k)
+        (if val
+            (eval-exp then-exp env k))]
+      [rator-k (rands env k)
+        (eval-rands rands env (rands-k val k))]
+      [rands-k (proc-value k)
+        (apply-proc proc-value val k)]
+      [let-rands-k (syms env bodies k)
+        (extend-env syms val env (let-extend-k bodies k))]
+      [let-extend-k (bodies k)
+        (eval-in-order bodies val k)]
+      [letrec-extend-k (bodies k)
+        (eval-in-order bodies val k)]
+      [while-test-k (test-exp bodies env k)
+        (if val
+           (eval-in-order bodies env (continue-while-k test-exp bodies env k))
+           #t)]
+      [continue-while-k (test-exp bodies env k)
+        (eval-while test-exp bodies env (while-test-k test-exp bodies env k))]
+      [and-k (env k)
+        (cond
+          [(null? val) #t]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (eval-exp (car val) env (2-and-k val env k))])]
+      [2-and-k (body env k)
+       (if val
+           (eval-or (cdr body) env (or-k env k))
+           #f)]
+      [or-k (env k)
+        (cond
+          [(null? val) #f]
+          [(null? (cdr val)) (eval-exp (car val) env k)]
+          [else (eval-exp (car val) env (2-or-k val env k))])]
+      [2-or-k (body env k)
+       (if val
+         val
+         (eval-or (cdr body) env (or-k env k)))]
+      [pos-set!-k (id body vals env eval-env k)
+        (if (number? val)
+            (eval-exp body eval-env (2-pos-set!-k val vals))
+            (eval-set! id body env eval-env k))]
+      [2-pos-set!-k (pos vals)
+        (set-cell! (list-ref vals pos) val)]
+
+      [order-eval-k (body env k) (eval-in-order body env k)]
+      [id-k () val]
+      )))

@@ -15,7 +15,7 @@
      (map prim-proc      
           *prim-proc-names*)
      (empty-env)
-     (id-k-record)))
+     (id-k)))
 
 (display "make init-env")
 (newline)
