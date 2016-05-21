@@ -49,7 +49,7 @@
       	[app-exp (rator rands)
         	(let* ([proc-value (eval-exp rator env (rator-k rands env k))]
              	[args (eval-rands rands env (rands-k proc-value k))])
-          		(apply-proc proc-value args k))]
+          		(apply-proc (car proc-value) args k))]
 
       	[if-exp (condition body)
          (eval-exp condition env (test-single-k body env k))]
@@ -129,7 +129,7 @@
 
 (define eval-rands
   (lambda (rands env k)
-    (map-cps (lambda (expr k) (eval-exp expr env k)) rands (id-k))))
+    (map-cps (lambda (expr k) (eval-exp expr env k)) rands k)))
 
 (define apply-proc
   (lambda (proc-value args k)
