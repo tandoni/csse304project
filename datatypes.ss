@@ -77,6 +77,8 @@
 		(arb-var symbol?)
 		(bodies (list-of expression?))
 		(env environment?)]
+  [c-proc
+    (k continuation?)]
 )
 	 
 	 
@@ -167,6 +169,9 @@
     (body (list-of expression?))
     (env environment?)
     (k continuation?)]
+  [map-k
+    (x scheme-value?)
+    (k continuation?)]
     
   )
 
@@ -225,4 +230,6 @@
 
       [order-eval-k (body env k) (eval-in-order body env k)]
       [id-k () val]
+      [map-k (x k)
+        (apply-k k (append (list x) val))]
       )))

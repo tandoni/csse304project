@@ -1,13 +1,10 @@
 ; top-level-eval evaluates a form in the global environment
 
-(display "before anything")
-(newline)
-
 (define *prim-proc-names* '(+ - * add1 sub1 cons = / not zero? car cdr list null?
               assq eq? equal? atom? length list->vector list? pair?
               procedure? vector->list vector vector? number? symbol?
               caar cadr cadar >= <= > < make-vector vector-ref set-car! set-cdr! display newline
-              map apply quotient vector-set! member list-tail append eqv? display newline))
+              map apply quotient vector-set! member list-tail append eqv? display newline call/cc))
 
 (define init-env         ; for now, our initial global environment only contains 
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -17,9 +14,6 @@
      (empty-env)
      (id-k)))
 
-(display "make init-env")
-(newline)
-
 (define make-init-env
   (lambda () init-env))
  
@@ -27,9 +21,6 @@
 
 (define reset-global-env
  (lambda () (set! global-env (make-init-env))))
-
-(display "reset global env")
-(newline)
 
 (define top-level-eval
   (lambda (form)
@@ -42,9 +33,6 @@
       [define-exp (name val) (set! global-env (extend-env (list name) (list (eval-exp (car val) global-env)) global-env (id-k)))]
       [else (eval-exp form (empty-env) (id-k))])))
 
-(display "eval-exp")
-(newline)
-
 (define eval-exp
   (lambda (exp env k)
     (cases expression exp	
@@ -54,7 +42,7 @@
                                                         (apply-env global-env
                                                           id
                                                           k
-                                                          (lambda ()
+                                                           (lambda ()
                                                             (eopl:error 'apply-env
                                           		                  "variable not found in environment: ~s"
                                                        			   	id)))))]
@@ -102,9 +90,6 @@
         [set!-exp (id body) (eval-set! id body env env k)]
         
       	[else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)])))
-	
-(display "eval-set!")
-(newline)
 
 (define eval-set!
   (lambda (id body new-env eval-env k)
@@ -115,9 +100,6 @@
       [recursively-extended-env-record (proc-names idss bodies old-env)
         (eval-set! id body old-env old-env k)])))
 
-(display "check global")
-(newline)
-
 (define check-global
   (lambda (id body global eval-env k)
     (cases environment global
@@ -127,67 +109,50 @@
       [recursively-extended-env-record (proc-names idss bodies old-env)
         (apply-k k '())])))
 
-(display "eval-while")
-(newline)
-
 (define eval-while
   (lambda (test-exp bodies env k)
     (eval-exp test-exp env k)))
 
-(display "eval and")
-(newline)
-
 (define eval-and
   (lambda (body env k)
     (apply-k k body)))
-    
-(display "eval or")
-(newline)
 
 (define eval-or
   (lambda (body env k)
     (apply-k k body)))
-
-(display "eval-in-order")
-(newline)
 
 (define eval-in-order
       (lambda (body env k)
             (cond
               [(null? (cdr body)) (eval-exp (car body) env k)]
               [else (eval-exp (car body) env (order-eval-k (cdr body) env k))])))
-                          
-(display "eval rands")
-(newline)
 
 (define eval-rands
   (lambda (rands env k)
     (map-cps (lambda (expr k) (eval-exp expr env k)) rands (id-k))))
-                
-
-(display "apply proc")
-(newline)        
 
 (define apply-proc
   (lambda (proc-value args k)
     (if (box? proc-value)
         (cases proc-val (unbox proc-value)
-          [prim-proc (op) (apply-k k (apply-prim-proc op args))]
+          [prim-proc (op) (apply-k k (apply-prim-proc op args k))]
           [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env (id-k)) k)]
        	  [dot-closure (vars dot-var bodies env)
           		(eval-in-order bodies (dot-extend-env vars dot-var args env) k)]
        	  [arb-closure (arb-var bodies env)
           		(eval-in-order bodies (extend-env (list arb-var) (list args) env (id-k)) k)]
+          [c-proc (k) (apply-k k (car args))]
           [else (error 'apply-proc
                   "Attempt to apply bad procedure: ~s" 
                   proc-value)])
         (cases proc-val proc-value
-          [prim-proc (op) (apply-k k (apply-prim-proc op args))]
+          [prim-proc (op) (apply-k k (apply-prim-proc op args k))]
           [closure (vars bodies env) (eval-in-order bodies (extend-env vars args env (id-k)) k)]
        	  [dot-closure (vars dot-var bodies env)
           		(eval-in-order bodies (dot-extend-env vars dot-var args env) k)]
        	  [arb-closure (arb-var bodies env)
           		(eval-in-order bodies (extend-env (list arb-var) (list args k) env (id-k)) k)]
+          [c-proc (k) (apply-k k (car args))]
           [else (error 'apply-proc
                   "Attempt to apply bad procedure: ~s" 
                   proc-value)]))))
@@ -258,7 +223,7 @@
    )))
 
 (define apply-prim-proc
-  (lambda (prim-proc args)
+  (lambda (prim-proc args k)
     (case prim-proc
       [(+) (apply + args)]
       [(-) (apply - args)]
@@ -272,6 +237,7 @@
       [(zero?) (zero? (car args))]
       [(display) (display (car args))]
       [(newline) (newline)]
+      [(call/cc) (apply-proc (car args) (list (c-proc k)) k)]
 
       [(car) (car (car args))]
       [(cdr) (cdr (car args))]
