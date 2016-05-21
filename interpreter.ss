@@ -47,9 +47,7 @@
                                           		                  "variable not found in environment: ~s"
                                                        			   	id)))))]
       	[app-exp (rator rands)
-        	(let* ([proc-value (eval-exp rator env (rator-k rands env k))]
-             	[args (eval-rands rands env (rands-k proc-value k))])
-          		(apply-proc (car proc-value) args k))]
+         (eval-exp rator env (rator-k rands env k))]
 
       	[if-exp (condition body)
          (eval-exp condition env (test-single-k body env k))]
